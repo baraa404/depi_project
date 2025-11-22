@@ -1,0 +1,17 @@
+{
+  "commands": [
+    {
+      "command": "commands.refresh",
+      "text": "$(sync)",
+      "tooltip": "Refresh commands",
+      "color": "#FFCC00"
+    },
+    {
+      "command": "workbench.action.tasks.runTask",
+      "args": "Flutter Clean & Pub Get",
+      "text": "$(tools)",
+      "tooltip": "Run flutter clean and pub get",
+      "color": "#00FF00"
+    }
+  ]
+}
