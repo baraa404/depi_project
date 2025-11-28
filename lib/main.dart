@@ -1,6 +1,8 @@
-import 'package:depi_project/providers/auth_provider.dart';
+import 'package:depi_project/providers/auth_provider.dart' as app_auth;
 import 'package:depi_project/providers/bracode_provider.dart';
+import 'package:depi_project/providers/favorites_provider.dart';
 import 'package:depi_project/views/screens/welcome_screen1.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,8 +15,9 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => app_auth.AuthProvider()),
         ChangeNotifierProvider(create: (_) => BarcodeProvider()),
+        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
       ],
 
       child: MyApp(),
@@ -22,8 +25,30 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Load favorites for current user on app start
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserFavorites();
+    });
+  }
+
+  void _loadUserFavorites() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      Provider.of<FavoritesProvider>(context, listen: false)
+          .loadFavorites(user.uid);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

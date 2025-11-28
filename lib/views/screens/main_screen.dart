@@ -41,9 +41,9 @@ class _MainScreenState extends State<MainScreen> {
             activeColor: Colors.green,
             gapLocation: GapLocation.center,
             notchSmoothness: NotchSmoothness.smoothEdge,
-            onTap: (int p1) {
+            onTap: (int index) {
               setState(() {
-                currentIndex = p1;
+                currentIndex = index;
               });
             },
           ),

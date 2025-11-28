@@ -1,8 +1,10 @@
+import 'package:depi_project/providers/favorites_provider.dart';
 import 'package:depi_project/views/screens/main_screen.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -218,9 +220,14 @@ class AuthProvider extends ChangeNotifier {
       );
 
       // Sign in to Firebase with the credential
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       isLoading = false;
       notifyListeners();
+
+      // Load favorites for the logged-in user
+      if (userCredential.user != null) {
+        context.read<FavoritesProvider>().loadFavorites(userCredential.user!.uid);
+      }
 
       // Navigate to welcome page
       Navigator.pushReplacement(
