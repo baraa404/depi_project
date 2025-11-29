@@ -1,4 +1,5 @@
-import 'package:depi_project/providers/auth_provider.dart';
+import 'package:depi_project/providers/auth_provider.dart' as app_auth;
+import 'package:depi_project/providers/favorites_provider.dart';
 import 'package:depi_project/views/screens/main_screen.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +34,7 @@ class RegisterScreen extends StatelessWidget {
                     horizontal: 20,
                     vertical: 40,
                   ),
-                  child: Consumer<AuthProvider>(
+                  child: Consumer<app_auth.AuthProvider>(
                     builder: (context, authProvider, child) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,6 +141,12 @@ class RegisterScreen extends StatelessWidget {
                                           ),
                                         );
                                       } else {
+                                        // Load favorites for the logged-in user
+                                        final user = authProvider.currentUser;
+                                        if (user != null) {
+                                          context.read<FavoritesProvider>().loadFavorites(user.uid);
+                                        }
+                                        
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(

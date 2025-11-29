@@ -1,4 +1,8 @@
+import 'package:depi_project/providers/favorites_provider.dart';
+import 'package:depi_project/views/screens/favorites_screen.dart';
+import 'package:depi_project/views/screens/prodcut_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -80,16 +84,22 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // Favorite Products Section
+              // Products Section (shows favorites if any)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Favorite Products',
+                    'Products',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                   ),
                   TextButton(
                     onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const FavoritesScreen(),
+                        ),
+                      );
                     },
                     child: const Text('See All'),
                   ),
@@ -97,13 +107,188 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // Favorites List
-              _buildEmptyFavorites(),
+              // Favorites List - Dynamic based on provider
+              Consumer<FavoritesProvider>(
+                builder: (context, favoritesProvider, child) {
+                  final favorites = favoritesProvider.favorites;
+                  
+                  if (favorites.isEmpty) {
+                    return _buildEmptyFavorites();
+                  }
+                  
+                  // Show up to 3 favorites
+                  final displayFavorites = favorites.take(3).toList();
+                  
+                  return Column(
+                    children: [
+                      ...displayFavorites.map((product) => _buildFavoriteItem(
+                        context,
+                        product: product,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ProductScreenBuilder(barcode: product.code),
+                            ),
+                          );
+                        },
+                        onRemove: () {
+                          favoritesProvider.removeFavorite(product.code);
+                        },
+                      )),
+                      if (favorites.length > 3)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '+${favorites.length - 3} more favorites',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
 
               const SizedBox(height: 16),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFavoriteItem(
+    BuildContext context, {
+    required FavoriteProduct product,
+    required VoidCallback onTap,
+    required VoidCallback onRemove,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Product Image
+                Container(
+                  width: 55,
+                  height: 55,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.grey.shade100,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                        ? Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(
+                                Icons.fastfood,
+                                size: 24,
+                                color: Colors.grey.shade400,
+                              );
+                            },
+                          )
+                        : Icon(
+                            Icons.fastfood,
+                            size: 24,
+                            color: Colors.grey.shade400,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Product Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name.isNotEmpty ? product.name : 'Unknown Product',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      if (product.brand.isNotEmpty)
+                        Text(
+                          product.brand,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Remove Button
+                IconButton(
+                  onPressed: onRemove,
+                  icon: Icon(
+                    Icons.favorite,
+                    color: Colors.red.shade400,
+                    size: 20,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyFavorites() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Text('⭐', style: const TextStyle(fontSize: 48)),
+          const SizedBox(height: 12),
+          const Text(
+            'No favorites yet',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Scan products and add them to favorites',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          ),
+        ],
       ),
     );
   }
@@ -467,31 +652,4 @@ class InfoRow extends StatelessWidget {
       ),
     );
   }
-}
-
-Widget _buildEmptyFavorites() {
-  return Container(
-    padding: const EdgeInsets.all(32),
-    decoration: BoxDecoration(
-      color: Colors.grey.shade50,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Colors.grey.shade200),
-    ),
-    child: Column(
-      children: [
-        Text('⭐', style: const TextStyle(fontSize: 48)),
-        const SizedBox(height: 12),
-        const Text(
-          'No favorites yet',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Scan products and add them to favorites',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-        ),
-      ],
-    ),
-  );
 }

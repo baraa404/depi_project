@@ -7,5 +7,6 @@
         "**/Thumbs.db": true,
         ".dart_tool": true
     },
-    "hide-files.files": []
+    "hide-files.files": [],
+    "ros.distro": "noetic"
 }

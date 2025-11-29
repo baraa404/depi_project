@@ -1,5 +1,7 @@
 import 'package:depi_project/modules/product.module.dart';
+import 'package:depi_project/providers/favorites_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class ProductHeader extends StatelessWidget {
   const ProductHeader({
@@ -160,19 +162,46 @@ class ProductHeader extends StatelessWidget {
                 ),
 
                 // Favorite Button
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: () {
-                      // Toggle favorite
-                    },
-                    icon: const Icon(Icons.favorite_border),
-                    color: Colors.red.shade400,
-                    iconSize: 22,
-                  ),
+                Consumer<FavoritesProvider>(
+                  builder: (context, favoritesProvider, child) {
+                    final isFavorite = favoritesProvider.isFavorite(product.code);
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: isFavorite ? Colors.red.shade50 : Colors.grey.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        onPressed: () {
+                          favoritesProvider.toggleFavorite(
+                            code: product.code,
+                            name: product.product?.productName ?? 'Unknown Product',
+                            brand: brand,
+                            imageUrl: image,
+                            nutriscoreGrade: product.product?.nutriscoreGrade ?? '',
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isFavorite
+                                    ? 'Removed from favorites'
+                                    : 'Added to favorites',
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                        ),
+                        color: Colors.red.shade400,
+                        iconSize: 22,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

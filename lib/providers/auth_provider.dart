@@ -1,11 +1,14 @@
+import 'package:depi_project/providers/favorites_provider.dart';
 import 'package:depi_project/views/screens/main_screen.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
@@ -78,6 +81,48 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Update user profile
+  Future<void> updateProfile({String? displayName}) async {
+    try {
+      if (displayName != null) {
+        await _auth.currentUser?.updateDisplayName(displayName);
+      }
+      notifyListeners();
+    } catch (e) {
+      // Optionally log the error: print('Profile update error: $e');
+      throw Exception('Failed to update profile. Please try again later.');
+    }
+  }
+
+  // Change password
+  Future<String?> changePassword(
+    String oldPassword,
+    String newPassword,
+  ) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 'No user is signed in';
+
+      // Re-authenticate user
+      if (user.email == null) {
+        return 'User email is not available for re-authentication';
+      }
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: oldPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Change password
+      await user.updatePassword(newPassword);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'An unexpected error occurred';
+    }
+  }
+
   // Login with email and password
   Future<String?> login(String email, String password) async {
     if (email.isEmpty) return 'Email is required';
@@ -130,13 +175,16 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Logout
-  Future<void> logout() async {
+  Future<bool> signOut() async {
     try {
       await _auth.signOut();
+      await _googleSignIn.signOut();
       clearControllers();
       notifyListeners();
+      return true;
     } catch (e) {
       notifyListeners();
+      return false;
     }
   }
 
@@ -153,24 +201,33 @@ class AuthProvider extends ChangeNotifier {
       isLoading = true;
       errorMessage = null;
       notifyListeners();
-      // Initialize GoogleSignIn
-      await GoogleSignIn.instance.initialize();
 
       // Open the authentication dialog
-      final GoogleSignInAccount googleUser = await GoogleSignIn.instance
-          .authenticate();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.authenticate();
+
+      if (googleUser == null) {
+        isLoading = false;
+        notifyListeners();
+        return; // User cancelled the sign-in
+      }
 
       // Get authentication tokens (the ID token)
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       // Create Firebase credential with ID token
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
       );
 
       // Sign in to Firebase with the credential
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       isLoading = false;
       notifyListeners();
+
+      // Load favorites for the logged-in user
+      if (userCredential.user != null) {
+        context.read<FavoritesProvider>().loadFavorites(userCredential.user!.uid);
+      }
 
       // Navigate to welcome page
       Navigator.pushReplacement(
