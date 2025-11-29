@@ -1,6 +1,7 @@
 import 'package:depi_project/providers/auth_provider.dart' as app_auth;
 import 'package:depi_project/providers/bracode_provider.dart';
 import 'package:depi_project/providers/favorites_provider.dart';
+import 'package:depi_project/views/screens/main_screen.dart';
 import 'package:depi_project/views/screens/welcome_screen1.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -57,7 +58,27 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
       ),
-      home: WelcomeScreen1(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // Show loading while checking auth state
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: Colors.green),
+              ),
+            );
+          }
+          
+          // If user is logged in, go to MainScreen
+          if (snapshot.hasData && snapshot.data != null) {
+            return const MainScreen();
+          }
+          
+          // If not logged in, show onboarding
+          return const WelcomeScreen1();
+        },
+      ),
     );
   }
 }
