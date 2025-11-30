@@ -1,3 +1,4 @@
+import 'package:depi_project/providers/bracode_provider.dart';
 import 'package:depi_project/providers/favorites_provider.dart';
 import 'package:depi_project/views/screens/main_screen.dart';
 import 'package:email_validator/email_validator.dart';
@@ -8,7 +9,6 @@ import 'package:provider/provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
@@ -95,10 +95,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Change password
-  Future<String?> changePassword(
-    String oldPassword,
-    String newPassword,
-  ) async {
+  Future<String?> changePassword(String oldPassword, String newPassword) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return 'No user is signed in';
@@ -175,16 +172,21 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Logout
-  Future<bool> signOut() async {
+  Future<void> logout(BuildContext context) async {
     try {
       await _auth.signOut();
-      await _googleSignIn.signOut();
       clearControllers();
+
+      // Clear other providers
+      if (context.mounted) {
+        context.read<FavoritesProvider>().onUserLogout();
+        // You might want to add a clear method to BarcodeProvider too
+        context.read<BarcodeProvider>().loadScannedCount(null);
+      }
+
       notifyListeners();
-      return true;
     } catch (e) {
       notifyListeners();
-      return false;
     }
   }
 
@@ -201,39 +203,53 @@ class AuthProvider extends ChangeNotifier {
       isLoading = true;
       errorMessage = null;
       notifyListeners();
+      // Initialize GoogleSignIn
+      await GoogleSignIn.instance.initialize();
 
       // Open the authentication dialog
-      final GoogleSignInAccount? googleUser = await _googleSignIn.authenticate();
+      final GoogleSignInAccount? googleUser = await GoogleSignIn.instance
+          .authenticate();
 
       if (googleUser == null) {
         isLoading = false;
         notifyListeners();
-        return; // User cancelled the sign-in
+        return;
       }
 
       // Get authentication tokens (the ID token)
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
+
       // Create Firebase credential with ID token
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
       );
 
       // Sign in to Firebase with the credential
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+
       isLoading = false;
       notifyListeners();
 
-      // Load favorites for the logged-in user
-      if (userCredential.user != null) {
-        context.read<FavoritesProvider>().loadFavorites(userCredential.user!.uid);
+      // Load user data
+      if (userCredential.user != null && context.mounted) {
+        context.read<FavoritesProvider>().loadFavorites(
+          userCredential.user!.uid,
+        );
+        context.read<BarcodeProvider>().loadScannedCount(
+          userCredential.user!.uid,
+        );
       }
 
       // Navigate to welcome page
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-      );
+      if (context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
+      }
     } catch (e) {
       isLoading = false;
       notifyListeners();

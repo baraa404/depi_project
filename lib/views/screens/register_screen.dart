@@ -1,4 +1,5 @@
 import 'package:depi_project/providers/auth_provider.dart' as app_auth;
+import 'package:depi_project/providers/bracode_provider.dart';
 import 'package:depi_project/providers/favorites_provider.dart';
 import 'package:depi_project/views/screens/main_screen.dart';
 import 'package:flutter/gestures.dart';
@@ -13,7 +14,7 @@ class RegisterScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.only(top: 15, left: 8, right: 8 ),
+        padding: const EdgeInsets.only(top: 15, left: 8, right: 8),
         child: SingleChildScrollView(
           child: Column(
             children: [
@@ -21,7 +22,7 @@ class RegisterScreen extends StatelessWidget {
               Image.asset(fit: BoxFit.cover, 'assets/3.png', height: 300),
               //@widget main container
               Container(
-                margin: EdgeInsets.only(left: 16, right: 16 ,bottom: 20),
+                margin: EdgeInsets.only(left: 16, right: 16, bottom: 20),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.all(Radius.circular(20)),
@@ -144,9 +145,14 @@ class RegisterScreen extends StatelessWidget {
                                         // Load favorites for the logged-in user
                                         final user = authProvider.currentUser;
                                         if (user != null) {
-                                          context.read<FavoritesProvider>().loadFavorites(user.uid);
+                                          context
+                                              .read<FavoritesProvider>()
+                                              .loadFavorites(user.uid);
+                                          context
+                                              .read<BarcodeProvider>()
+                                              .loadScannedCount(user.uid);
                                         }
-                                        
+
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
@@ -249,11 +255,9 @@ class RegisterScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-                          
                         ],
                       );
                     },
-                    
                   ),
                 ),
               ),

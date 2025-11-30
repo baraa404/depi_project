@@ -1,6 +1,5 @@
-import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// A simple model to store favorite product data
 class FavoriteProduct {
@@ -44,6 +43,7 @@ class FavoriteProduct {
 class FavoritesProvider extends ChangeNotifier {
   final Map<String, FavoriteProduct> _favorites = {};
   String? _currentUserId;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// Get all favorites as a list
   List<FavoriteProduct> get favorites => _favorites.values.toList();
@@ -56,27 +56,28 @@ class FavoritesProvider extends ChangeNotifier {
     return _favorites.containsKey(productCode);
   }
 
-  /// Get storage key for user
-  String _getStorageKey(String? userId) {
-    return 'favorites_${userId ?? 'guest'}';
-  }
-
-  /// Load favorites from local storage for a specific user
+  /// Load favorites from Firestore for a specific user
   Future<void> loadFavorites(String? userId) async {
+    print("FavoritesProvider: Loading favorites for user: $userId");
     _currentUserId = userId;
     _favorites.clear();
-    
+
+    if (userId == null) {
+      notifyListeners();
+      return;
+    }
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = _getStorageKey(userId);
-      final String? favoritesJson = prefs.getString(key);
-      
-      if (favoritesJson != null) {
-        final List<dynamic> favoritesList = jsonDecode(favoritesJson);
-        for (var item in favoritesList) {
-          final product = FavoriteProduct.fromJson(item);
-          _favorites[product.code] = product;
-        }
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('favorites')
+          .get();
+
+      print("FavoritesProvider: Found ${snapshot.docs.length} favorites");
+      for (var doc in snapshot.docs) {
+        final product = FavoriteProduct.fromJson(doc.data());
+        _favorites[product.code] = product;
       }
       notifyListeners();
     } catch (e) {
@@ -85,28 +86,16 @@ class FavoritesProvider extends ChangeNotifier {
     }
   }
 
-  /// Save favorites to local storage
-  Future<void> _saveFavorites() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = _getStorageKey(_currentUserId);
-      final favoritesList = _favorites.values.map((f) => f.toJson()).toList();
-      await prefs.setString(key, jsonEncode(favoritesList));
-    } catch (e) {
-      debugPrint('Error saving favorites: $e');
-    }
-  }
-
   /// Add a product to favorites
-  void addFavorite({
+  Future<void> addFavorite({
     required String code,
     required String name,
     required String brand,
     String? imageUrl,
     required String nutriscoreGrade,
-  }) {
+  }) async {
     if (!_favorites.containsKey(code)) {
-      _favorites[code] = FavoriteProduct(
+      final product = FavoriteProduct(
         code: code,
         name: name,
         brand: brand,
@@ -114,32 +103,64 @@ class FavoritesProvider extends ChangeNotifier {
         nutriscoreGrade: nutriscoreGrade,
         addedAt: DateTime.now(),
       );
+
+      _favorites[code] = product;
       notifyListeners();
-      _saveFavorites();
+
+      print(
+        "FavoritesProvider: Adding favorite $code. UserID: $_currentUserId",
+      );
+      if (_currentUserId != null) {
+        try {
+          await _firestore
+              .collection('users')
+              .doc(_currentUserId)
+              .collection('favorites')
+              .doc(code)
+              .set(product.toJson());
+          print("FavoritesProvider: Saved favorite to Firestore");
+        } catch (e) {
+          debugPrint('Error adding favorite: $e');
+        }
+      } else {
+        print("FavoritesProvider: UserID is null, NOT saving to Firestore");
+      }
     }
   }
 
   /// Remove a product from favorites
-  void removeFavorite(String productCode) {
+  Future<void> removeFavorite(String productCode) async {
     if (_favorites.containsKey(productCode)) {
       _favorites.remove(productCode);
       notifyListeners();
-      _saveFavorites();
+
+      if (_currentUserId != null) {
+        try {
+          await _firestore
+              .collection('users')
+              .doc(_currentUserId)
+              .collection('favorites')
+              .doc(productCode)
+              .delete();
+        } catch (e) {
+          debugPrint('Error removing favorite: $e');
+        }
+      }
     }
   }
 
   /// Toggle favorite status
-  void toggleFavorite({
+  Future<void> toggleFavorite({
     required String code,
     required String name,
     required String brand,
     String? imageUrl,
     required String nutriscoreGrade,
-  }) {
+  }) async {
     if (_favorites.containsKey(code)) {
-      removeFavorite(code);
+      await removeFavorite(code);
     } else {
-      addFavorite(
+      await addFavorite(
         code: code,
         name: name,
         brand: brand,
@@ -153,7 +174,8 @@ class FavoritesProvider extends ChangeNotifier {
   void clearFavorites() {
     _favorites.clear();
     notifyListeners();
-    _saveFavorites();
+    // Note: We don't delete from Firestore here to avoid accidental data loss
+    // or complex batch deletes unless explicitly requested.
   }
 
   /// Clear favorites when user logs out

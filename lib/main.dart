@@ -20,8 +20,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => BarcodeProvider()),
         ChangeNotifierProvider(create: (_) => FavoritesProvider()),
       ],
-
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
@@ -37,17 +36,23 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Load favorites for current user on app start
+    // Load user data on app start
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserFavorites();
+      _loadUserData();
     });
   }
 
-  void _loadUserFavorites() {
+  void _loadUserData() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      Provider.of<FavoritesProvider>(context, listen: false)
-          .loadFavorites(user.uid);
+      Provider.of<FavoritesProvider>(
+        context,
+        listen: false,
+      ).loadFavorites(user.uid);
+      Provider.of<BarcodeProvider>(
+        context,
+        listen: false,
+      ).loadScannedCount(user.uid);
     }
   }
 
@@ -55,27 +60,20 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Healthy Scan',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        useMaterial3: true,
       ),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          // Show loading while checking auth state
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(color: Colors.green),
-              ),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
-          
-          // If user is logged in, go to MainScreen
-          if (snapshot.hasData && snapshot.data != null) {
+          if (snapshot.hasData) {
             return const MainScreen();
           }
-          
-          // If not logged in, show onboarding
           return const WelcomeScreen1();
         },
       ),
